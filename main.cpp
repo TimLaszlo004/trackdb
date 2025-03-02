@@ -7,6 +7,7 @@
 #include <list>
 #include "gpstrackpoint.h"
 #include "sessionhandler.h"
+#include "database.h"
 
 enum class ErrorType {
     InvalidFileNameException,
@@ -47,19 +48,6 @@ std::list<GPSTrackPoint> readCSV(const std::string& filename) {
     return data;
 }
 
-int executeSQL(sqlite3* db, const std::string& sql) {
-    char* errMsg = nullptr;
-    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
-
-    if (rc != SQLITE_OK) {
-        std::cerr << "SQL error: " << errMsg << std::endl;
-        sqlite3_free(errMsg);
-        return rc;
-    }
-    return SQLITE_OK;
-}
-
-
 void insertToDB(){
 
 }
@@ -85,7 +73,6 @@ bool evaluate(const std::string& input){
                       << " - does only use double-parsable values and no strings after the first line\n"
                       << " - data is in the following order: timestamp,lat,lon,heading" << std::endl;
             break;
-        
         default:
             break;
         }
@@ -98,26 +85,48 @@ bool evaluate(const std::string& input){
     return false;
 }
 
+Database prepareDBValues (const std::string dbfile) {
+    Database DB;
+    // DB.createTable();
+    return DB;
+    sqlite3* sqldb;
+    if (sqlite3_open("tracks.db", &sqldb) != SQLITE_OK) {
+        std::cerr << "Error opening database: " << sqlite3_errmsg(sqldb) << std::endl;
+        exit(1);
+    }
+    // std::vector<Track> tracks;
+    std::string queryPoints = "SELECT ROAD_PNT_ID, REF_ROAD_ID, SEQUENCE, LAT, LON, duration FROM ROAD_POINTS;";
+    std::string queryRoads = "SELECT ROAD_ID, ROAD_NAME, ROAD_CATEGORY, IS_ONEWAY, SPEED_LIMIT_IN_KPH, ROAD_WIDTH_IN_METER FROM ROAD_POINTS;";
+    
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(sqldb, queryPoints.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "Error preparing statement: " << sqlite3_errmsg(sqldb) << std::endl;
+        exit(1);
+    }
+
+    // Execute the query and fetch results row by row
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        Track track;
+        track.id = sqlite3_column_int(stmt, 0);
+        track.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        track.duration = sqlite3_column_int(stmt, 2);
+
+        tracks.push_back(track); // Store the row in a vector
+    }
+
+    sqlite3_finalize(stmt); // Clean up statement
+    sqlite3_close(db);
+    return tracks;
+}
+
 int main()
 {
+    Database DB = prepareDBValues("myroad.db");
     std::string input;
-    // readCSV("track_1.csv");
     while (true) {
         std::cout << "Please enter CSV file name to read [or type exit]:" << std::endl;
         std::cin >> input;
         if (evaluate(input)) break;
     }
     return 0;
-    sqlite3* DB;
-    int returnCode = 0;
-    returnCode = sqlite3_open("myroads.db", &DB);
-
-    if (returnCode) {
-        std::cerr << "Error open DB " << sqlite3_errmsg(DB) << std::endl;
-        return (-1);
-    }
-    else
-        std::cout << "Database (" << input << ") opened" << std::endl;
-    sqlite3_close(DB);
-    return (0); 
 } 
