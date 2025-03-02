@@ -10,7 +10,7 @@
 #include "database.h"
 #include "geomcalculations.h"
 
-constexpr const char* DB_NAME = "myroad.db";
+constexpr const char* DB_NAME = "road.db";
 unsigned gps_track_id = 0;
 
 enum class ErrorType {
